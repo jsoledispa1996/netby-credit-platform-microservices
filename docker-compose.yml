@@ -1,0 +1,93 @@
+name: netby-banking
+
+services:
+
+  # Base de Datos PostgreSQL
+  postgres:
+    image: postgres:16-alpine
+    container_name: netby-postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-banco}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-bancopass}
+      POSTGRES_DB: ${DB_NAME:-creditdb}
+    ports:
+      - "5432:5432"
+    volumes:
+      - netby-postgres-data:/var/lib/postgresql/data
+      - ./netby-bd/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - netby-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-banco} -d ${DB_NAME:-creditdb}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Microservicio B - Servicio de Riesgos (gRPC)
+  risk-service:
+    build:
+      context: ./netby-banking-microservices/netby-risk-service
+      dockerfile: Dockerfile
+    container_name: netby-risk-service
+    ports:
+      - "8081:8081"   # HTTP (health)
+      - "9000:9000"   # gRPC
+    networks:
+      - netby-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8081/q/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Microservicio A - Orquestador
+  credit-orchestrator:
+    build:
+      context: ./netby-banking-microservices/netby-credit-orchestrator
+      dockerfile: Dockerfile
+    container_name: netby-credit-orchestrator
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-creditdb}
+      DB_USER: ${DB_USER:-banco}
+      DB_PASSWORD: ${DB_PASSWORD:-bancopass}
+      RISK_SERVICE_HOST: risk-service
+      RISK_SERVICE_GRPC_PORT: 9000
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:4200}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      risk-service:
+        condition: service_healthy
+    networks:
+      - netby-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/q/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # Frontend Angular (producción)
+  netby-credit-evaluation-ui:
+    build:
+      context: ./netby-credit-evaluation-ui
+      dockerfile: Dockerfile
+    container_name: netby-credit-evaluation-ui
+    ports:
+      - "4200:80"
+    depends_on:
+      credit-orchestrator:
+        condition: service_healthy
+    networks:
+      - netby-network
+
+networks:
+  netby-network:
+    driver: bridge
+
+volumes:
+  netby-postgres-data:

@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.netby.banking.risk.grpc";
+option java_outer_classname = "RiskProto";
+
+package risk;
+
+service RiskService {
+  rpc GetCreditScore (ScoreRequest) returns (ScoreResponse);
+  rpc GetDebts (DebtsRequest) returns (DebtsResponse);
+}
+
+message ScoreRequest {
+  string cedula = 1;
+}
+
+message ScoreResponse {
+  string cedula = 1;
+  int32 score = 2;
+}
+
+message DebtsRequest {
+  string cedula = 1;
+}
+
+message Debt {
+  string description = 1;
+  double monthlyPayment = 2;
+}
+
+message DebtsResponse {
+  string cedula = 1;
+  repeated Debt debts = 2;
+  double totalMonthlyDebt = 3;
+}

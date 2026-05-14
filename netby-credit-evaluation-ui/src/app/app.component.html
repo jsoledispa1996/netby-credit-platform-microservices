@@ -1,0 +1,220 @@
+<div class="app-container">
+  <header class="app-header">
+    <div class="header-content">
+      <div class="header-icon">🏦</div>
+      <div>
+        <h1>Sistema de Evaluación de Créditos</h1>
+        <p>Evaluación instantánea con análisis de riesgo crediticio</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <!-- Formulario de Evaluación -->
+    <section class="card form-card">
+      <h2>Nueva Evaluación</h2>
+      <form [formGroup]="form" (ngSubmit)="onSubmit()">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="cedula">Cédula de Identidad *</label>
+            <input
+              id="cedula"
+              type="text"
+              formControlName="cedula"
+              placeholder="0912345678"
+              maxlength="10"
+              [class.invalid]="f['cedula'].invalid && f['cedula'].touched"
+            />
+            <span class="field-error" *ngIf="f['cedula'].invalid && f['cedula'].touched">
+              Ingrese una cédula válida de 10 dígitos
+            </span>
+          </div>
+
+          <div class="form-group">
+            <label for="salario">Salario Mensual (USD) *</label>
+            <input
+              id="salario"
+              type="number"
+              formControlName="salario"
+              placeholder="1500.00"
+              min="1"
+              step="0.01"
+              [class.invalid]="f['salario'].invalid && f['salario'].touched"
+            />
+            <span class="field-error" *ngIf="f['salario'].invalid && f['salario'].touched">
+              Ingrese un salario positivo
+            </span>
+          </div>
+
+          <div class="form-group">
+            <label for="montoSolicitado">Monto Solicitado (USD) *</label>
+            <input
+              id="montoSolicitado"
+              type="number"
+              formControlName="montoSolicitado"
+              placeholder="10000.00"
+              min="1"
+              step="0.01"
+              [class.invalid]="f['montoSolicitado'].invalid && f['montoSolicitado'].touched"
+            />
+            <span class="field-error" *ngIf="f['montoSolicitado'].invalid && f['montoSolicitado'].touched">
+              Ingrese un monto positivo
+            </span>
+          </div>
+
+          <div class="form-group">
+            <label for="plazoAnios">Plazo (Años) *</label>
+            <input
+              id="plazoAnios"
+              type="number"
+              formControlName="plazoAnios"
+              placeholder="5"
+              min="1"
+              max="30"
+              [class.invalid]="f['plazoAnios'].invalid && f['plazoAnios'].touched"
+            />
+            <span class="field-error" *ngIf="f['plazoAnios'].invalid && f['plazoAnios'].touched">
+              Ingrese un plazo entre 1 y 30 años
+            </span>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-primary" [disabled]="form.invalid || loading">
+          <span *ngIf="!loading">Evaluar Crédito</span>
+          <span *ngIf="loading" class="loading-spinner">
+            <span class="spinner"></span> Evaluando...
+          </span>
+        </button>
+      </form>
+    </section>
+
+    <!-- Resultado -->
+    <section class="card result-card" *ngIf="result || error">
+      <h2>Resultado de la Evaluación</h2>
+
+      <div *ngIf="error" class="alert alert-error">
+        <span class="alert-icon">⚠️</span>
+        <div>
+          <strong>Error</strong>
+          <p>{{ error }}</p>
+        </div>
+      </div>
+
+      <div *ngIf="result && !error">
+        <div class="result-badge" [class.approved]="result.estado === 'APROBADO'" [class.rejected]="result.estado === 'RECHAZADO'">
+          <span class="badge-icon">{{ result.estado === 'APROBADO' ? '✅' : '❌' }}</span>
+          <span class="badge-text">{{ result.estado }}</span>
+        </div>
+
+        <div class="result-details">
+          <div class="detail-row">
+            <span class="detail-label">Cédula</span>
+            <span class="detail-value">{{ result.cedula }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Score Crediticio</span>
+            <span class="detail-value score-value" [class.score-good]="result.scoreObtenido > 70" [class.score-bad]="result.scoreObtenido <= 70">
+              {{ result.scoreObtenido }}/100
+            </span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Deuda Mensual Actual</span>
+            <span class="detail-value">$ {{ result.deudaMensual | number:'1.2-2' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Cuota Estimada</span>
+            <span class="detail-value">$ {{ (result.montoSolicitado / (result.plazoAnios * 12)) | number:'1.2-2' }}/mes</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Capacidad de Pago (40%)</span>
+            <span class="detail-value">$ {{ (result.salario * 0.4) | number:'1.2-2' }}/mes</span>
+          </div>
+        </div>
+
+        <div *ngIf="result.motivoRechazo" class="alert alert-warning">
+          <span class="alert-icon">ℹ️</span>
+          <div>
+            <strong>Motivo de Rechazo</strong>
+            <p>{{ result.motivoRechazo }}</p>
+          </div>
+        </div>
+
+        <div *ngIf="result.deudas && result.deudas.length > 0" class="debts-section">
+          <h3>Deudas Vigentes</h3>
+          <div class="debt-item" *ngFor="let deuda of result.deudas">
+            <span>{{ deuda.descripcion }}</span>
+            <span class="debt-amount">$ {{ deuda.mensualidad | number:'1.2-2' }}/mes</span>
+          </div>
+        </div>
+        <div *ngIf="result.deudas && result.deudas.length === 0" class="no-debts">
+          Sin deudas vigentes registradas
+        </div>
+      </div>
+    </section>
+
+    <!-- Lista de Evaluaciones -->
+    <section class="card list-card">
+      <div class="list-header">
+        <div>
+          <h2>Historial de Evaluaciones</h2>
+          <p class="list-subtitle" *ngIf="cedulaValid">Filtrado por cédula: <strong>{{ f['cedula'].value }}</strong></p>
+          <p class="list-subtitle" *ngIf="!cedulaValid">Ingrese y valide una cédula para filtrar</p>
+        </div>
+        <button class="btn-secondary" (click)="loadEvaluations()" [disabled]="loadingList || !cedulaValid">
+          <span *ngIf="!loadingList">🔄 Actualizar</span>
+          <span *ngIf="loadingList" class="loading-spinner"><span class="spinner btn-spinner"></span> Cargando...</span>
+        </button>
+      </div>
+
+      <div *ngIf="loadingList" class="loading-state">
+        <span class="spinner large"></span>
+        <p>Cargando evaluaciones...</p>
+      </div>
+
+      <div *ngIf="!loadingList && !cedulaValid" class="empty-state">
+        <p>🔍 Ingrese una cédula válida y presione <strong>Actualizar</strong> para ver el historial.</p>
+      </div>
+
+      <div *ngIf="!loadingList && cedulaValid && evaluations.length === 0" class="empty-state">
+        <p>No hay evaluaciones registradas para esta cédula.</p>
+      </div>
+
+      <div *ngIf="!loadingList && evaluations.length > 0" class="table-wrapper">
+        <table class="evaluations-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Cédula</th>
+              <th>Monto</th>
+              <th>Plazo</th>
+              <th>Salario</th>
+              <th>Score</th>
+              <th>Estado</th>
+              <th>Fecha</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let eval of evaluations">
+              <td>{{ eval.id }}</td>
+              <td class="mono">{{ eval.cedula }}</td>
+              <td>$ {{ eval.montoSolicitado | number:'1.2-2' }}</td>
+              <td>{{ eval.plazoAnios }} año(s)</td>
+              <td>$ {{ eval.salario | number:'1.2-2' }}</td>
+              <td>
+                <span class="score-chip" [class.good]="eval.scoreObtenido > 70" [class.bad]="eval.scoreObtenido <= 70">
+                  {{ eval.scoreObtenido }}
+                </span>
+              </td>
+              <td>
+                <span class="status-chip" [class.approved]="eval.estado === 'APROBADO'" [class.rejected]="eval.estado === 'RECHAZADO'">
+                  {{ eval.estado }}
+                </span>
+              </td>
+              <td class="date-cell">{{ eval.fechaEvaluacion | date:'dd/MM/yyyy HH:mm' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
