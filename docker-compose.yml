@@ -79,6 +79,9 @@ services:
     container_name: netby-credit-evaluation-ui
     ports:
       - "4200:80"
+    environment:
+      BACKEND_URL: ${BACKEND_URL}
+      NGINX_RESOLVER: ${NGINX_RESOLVER}
     depends_on:
       credit-orchestrator:
         condition: service_healthy
